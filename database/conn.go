@@ -13,12 +13,12 @@ import (
 var MongoDBClient *mongo.Client
 
 func ConnectToMongoDB() {
-	mongoURL := os.Getenv("MONGODB_URL")
-	if mongoURL == "" {
-		log.Fatal("MONGODB_URL environment variable is not set")
+	mongoURI := os.Getenv("MONGODB_URI")
+	if mongoURI == "" {
+		log.Fatal("MONGODB_URI environment variable is not set")
 	}
 
-	clientOpt := options.Client().ApplyURI(mongoURL)
+	clientOpt := options.Client().ApplyURI(mongoURI)
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
