@@ -1,0 +1,32 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug API Server",
+      "type": "go",
+      "request": "launch",
+      "mode": "debug",
+      "program": "${workspaceFolder}/cmd/api",
+      "env": {
+        "GIN_MODE": "debug",
+        "LOG_LEVEL": "debug"
+      },
+      "envFile": "${workspaceFolder}/.env",
+      "args": [],
+      "showLog": true,
+      "logOutput": "rpc",
+      "buildFlags": "",
+      "dlvFlags": [
+        "--check-go-version=false"
+      ]
+    },
+  ],
+  "inputs": [
+    {
+      "id": "testName",
+      "description": "Test function name",
+      "default": "TestUserUseCase",
+      "type": "promptString"
+    }
+  ]
+}

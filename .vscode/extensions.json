@@ -1,0 +1,13 @@
+{
+  "recommendations": [
+    "golang.go",
+    "humao.rest-client",
+    "ms-vscode.vscode-json",
+    "bradlc.vscode-tailwindcss",
+    "esbenp.prettier-vscode",
+    "ms-vscode.makefile-tools",
+    "ms-vscode-remote.remote-containers",
+    "mongodb.mongodb-vscode",
+    "formulahendry.docker-explorer"
+  ]
+}
