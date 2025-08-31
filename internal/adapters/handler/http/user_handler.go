@@ -1,3 +1,4 @@
+// Package http provides HTTP handlers for user management operations.
 package http
 
 import (

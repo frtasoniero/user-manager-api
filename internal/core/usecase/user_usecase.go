@@ -1,3 +1,4 @@
+// Package usecase provides business logic for user management operations.
 package usecase
 
 import (

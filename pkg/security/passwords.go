@@ -1,3 +1,4 @@
+// Package security provides password hashing and verification utilities.
 package security
 
 import "golang.org/x/crypto/bcrypt"

@@ -1,3 +1,4 @@
+// Package routes provides HTTP route definitions for the user management API.
 package routes
 
 import (
@@ -18,7 +19,6 @@ func RegisterRoutes(router *gin.Engine, userRepo *repository.UserRepository) {
 		apiGroup.GET("/health", healthCheck)
 		apiGroup.POST("/users/register", userHandler.Register)
 	}
-
 }
 
 func healthCheck(c *gin.Context) {

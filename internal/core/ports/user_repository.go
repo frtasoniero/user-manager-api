@@ -1,3 +1,4 @@
+// Package ports defines interfaces for data access and repository abstractions in the user management API.
 package ports
 
 import (

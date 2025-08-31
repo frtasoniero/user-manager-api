@@ -1,3 +1,4 @@
+// Package database provides functions to connect and disconnect from MongoDB.
 package database
 
 import (

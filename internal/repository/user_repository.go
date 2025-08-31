@@ -1,3 +1,4 @@
+// Package repository provides MongoDB-based implementations of user data persistence and retrieval.
 package repository
 
 import (
@@ -51,7 +52,7 @@ func (r *UserRepository) GetUsers(ctx context.Context, opts *ports.GetUsersOptio
 			projection[field] = 1
 		}
 		// Always include _id unless explicitly excluded
-		if _, hasId := projection["_id"]; !hasId {
+		if _, hasID := projection["_id"]; !hasID {
 			projection["_id"] = 1
 		}
 		findOpts.SetProjection(projection)

@@ -1,3 +1,4 @@
+// Package domain contains core business entities and logic for user management.
 package domain
 
 import (
@@ -30,7 +31,7 @@ type Profile struct {
 type User struct {
 	ID           primitive.ObjectID `json:"id" bson:"_id,omitempty"`
 	Email        string             `json:"email" bson:"email,omitempty"`
-	PasswordHash string             `json:"-" bson:"password_hash,omitempty"` // json:"-" hides password hash
+	PasswordHash string             `json:"-" bson:"password_hash,omitempty"`
 	Profile      Profile            `json:"profile" bson:"profile,omitempty"`
 	CreatedAt    time.Time          `json:"created_at" bson:"created_at,omitempty"`
 	UpdatedAt    time.Time          `json:"updated_at" bson:"updated_at,omitempty"`
