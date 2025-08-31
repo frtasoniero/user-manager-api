@@ -16,7 +16,7 @@ func RegisterRoutes(router *gin.Engine, userRepo *repository.UserRepository) {
 	apiGroup := router.Group("/api/v1")
 	{
 		apiGroup.GET("/health", healthCheck)
-		apiGroup.POST("/user/register", userHandler.Register)
+		apiGroup.POST("/users/register", userHandler.Register)
 	}
 
 }
