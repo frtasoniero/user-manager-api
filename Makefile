@@ -1,4 +1,4 @@
-.PHONY: help build run dev test clean docker-up docker-down docker-logs docker-clean deps lint format vet check install-tools
+.PHONY: help build run dev clean docker-up docker-down docker-logs docker-clean deps lint format vet check install-tools
 
 # Default target
 help: ## Show available commands
@@ -26,6 +26,7 @@ install-tools: ## Install development tools
 	@go install golang.org/x/tools/cmd/goimports@latest
 	@go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 	@go install github.com/air-verse/air@latest
+	@go install github.com/swaggo/swag/cmd/swag@latest
 
 build: deps ## Build the application
 	@echo "Building application..."
@@ -38,20 +39,6 @@ run: .env ## Run the application
 dev: .env install-tools ## Run in development mode with hot reload
 	@echo "Starting development server with hot reload..."
 	@air
-
-test: ## Run tests
-	@echo "Running tests..."
-	@go test -v ./...
-
-test-coverage: ## Run tests with coverage
-	@echo "Running tests with coverage..."
-	@go test -coverprofile=coverage.out ./...
-	@go tool cover -html=coverage.out -o coverage.html
-	@echo "Coverage report generated: coverage.html"
-
-bench: ## Run benchmarks
-	@echo "Running benchmarks..."
-	@go test -bench=. -benchmem ./...
 
 # Code quality
 lint: ## Run linter
@@ -67,7 +54,7 @@ vet: ## Run go vet
 	@echo "Running go vet..."
 	@go vet ./...
 
-check: format vet lint test ## Run all checks (format, vet, lint, test)
+check: format vet lint ## Run all checks (format, vet, lint)
 
 clean: ## Clean build artifacts
 	@echo "Cleaning..."

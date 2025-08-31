@@ -24,7 +24,9 @@ db.createCollection('users', {
       required: ['email', 'password_hash', 'profile', 'created_at', 'updated_at'],
       properties: {
         _id: {
-          bsonType: 'objectId'
+          bsonType: 'string',
+          pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
+          description: 'Must be a valid UUID'
         },
         email: {
           bsonType: 'string',

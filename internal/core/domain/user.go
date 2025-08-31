@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson/primitive"
+	"github.com/google/uuid"
 )
 
 var ErrInvalidEmail = errors.New("invalid email address")
@@ -29,12 +29,12 @@ type Profile struct {
 }
 
 type User struct {
-	ID           primitive.ObjectID `json:"id" bson:"_id,omitempty"`
-	Email        string             `json:"email" bson:"email,omitempty"`
-	PasswordHash string             `json:"-" bson:"password_hash,omitempty"`
-	Profile      Profile            `json:"profile" bson:"profile,omitempty"`
-	CreatedAt    time.Time          `json:"created_at" bson:"created_at,omitempty"`
-	UpdatedAt    time.Time          `json:"updated_at" bson:"updated_at,omitempty"`
+	ID           string    `json:"id" bson:"_id,omitempty"`
+	Email        string    `json:"email" bson:"email,omitempty"`
+	PasswordHash string    `json:"-" bson:"password_hash,omitempty"`
+	Profile      Profile   `json:"profile" bson:"profile,omitempty"`
+	CreatedAt    time.Time `json:"created_at" bson:"created_at,omitempty"`
+	UpdatedAt    time.Time `json:"updated_at" bson:"updated_at,omitempty"`
 }
 
 func NewUser(email, passwordHash string, profile Profile) (*User, error) {
@@ -44,6 +44,7 @@ func NewUser(email, passwordHash string, profile Profile) (*User, error) {
 	}
 
 	return &User{
+		ID:           uuid.New().String(),
 		Email:        email,
 		PasswordHash: passwordHash,
 		Profile:      profile,

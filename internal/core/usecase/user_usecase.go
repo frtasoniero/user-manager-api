@@ -48,7 +48,11 @@ func (u *UserUseCase) Register(ctx context.Context, email, password string, prof
 }
 
 func (u *UserUseCase) GetUsers(ctx context.Context, opts *ports.GetUsersOptions) (*ports.GetUsersResult, error) {
-	return u.users.GetUsers(ctx, opts)
+	users, err := u.users.GetUsers(ctx, opts)
+	if err != nil {
+		return nil, err
+	}
+	return users, nil
 }
 
 func (u *UserUseCase) GetUserByEmail(ctx context.Context, email string) (*domain.User, error) {
@@ -60,4 +64,26 @@ func (u *UserUseCase) GetUserByEmail(ctx context.Context, email string) (*domain
 		return nil, ErrUserNotFound
 	}
 	return user, nil
+}
+
+func (u *UserUseCase) GetUserByID(ctx context.Context, id string) (*domain.User, error) {
+	user, err := u.users.GetUserByID(ctx, id)
+	if err != nil {
+		return nil, ErrUserNotFound
+	}
+	return user, nil
+}
+
+func (u *UserUseCase) UpdateUser(ctx context.Context, user *domain.User) error {
+	if err := u.users.UpdateUser(ctx, user); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (u *UserUseCase) DeleteUser(ctx context.Context, id string) error {
+	if err := u.users.DeleteUser(ctx, id); err != nil {
+		return err
+	}
+	return nil
 }

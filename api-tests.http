@@ -194,16 +194,76 @@ Content-Type: application/json
 # }
 
 ###
-### Get All Users (when implemented)
+### Get All Users (Default pagination)
 ###
-# GET http://localhost:8080/api/v1/users
-# Accept: application/json
+GET http://localhost:8080/api/v1/users
+Accept: application/json
 
 ###
-### Get Users with Pagination (when implemented)
+### Get Users - Page 2, 5 per page
 ###
-# GET http://localhost:8080/api/v1/users?page=1&page_size=10
-# Accept: application/json
+GET http://localhost:8080/api/v1/users?page=2&page_size=5
+Accept: application/json
+
+###
+### Get Users - Only specific fields
+###
+GET http://localhost:8080/api/v1/users?fields=email,profile.first_name,profile.last_name
+Accept: application/json
+
+###
+### Get Users - Search by name (case-insensitive)
+###
+GET http://localhost:8080/api/v1/users?search=john
+Accept: application/json
+
+###
+### Get Users - Search by email
+###
+GET http://localhost:8080/api/v1/users?search=example.com
+Accept: application/json
+
+###
+### Get Users - Sort by email (ascending)
+###
+GET http://localhost:8080/api/v1/users?sort=email&order=asc
+Accept: application/json
+
+###
+### Get Users - Sort by creation date (descending)
+###
+GET http://localhost:8080/api/v1/users?sort=created_at&order=desc
+Accept: application/json
+
+###
+### Get Users - Sort by first name (ascending)
+###
+GET http://localhost:8080/api/v1/users?sort=first_name&order=asc
+Accept: application/json
+
+###
+### Get Users - Combined filters (pagination + search + sort)
+###
+GET http://localhost:8080/api/v1/users?page=1&page_size=3&search=test&sort=email&order=asc
+Accept: application/json
+
+###
+### Get Users - Full featured query (pagination + fields + search + sort)
+###
+GET http://localhost:8080/api/v1/users?page=1&page_size=5&fields=email,profile.first_name,profile.last_name,created_at&search=user&sort=created_at&order=desc
+Accept: application/json
+
+###
+### Get Users - Large page size (will be capped at 100)
+###
+GET http://localhost:8080/api/v1/users?page_size=200
+Accept: application/json
+
+###
+### Get Users - Invalid sort field (should return error)
+###
+GET http://localhost:8080/api/v1/users?sort=invalid_field
+Accept: application/json
 
 ###
 ### Get User by Email (when implemented)

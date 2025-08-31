@@ -12,11 +12,13 @@ import (
 
 func RegisterRoutes(router *gin.Engine, userRepo *repository.UserRepository) {
 	userUseCase := usecase.NewUserUseCase(userRepo)
-	userHandler := handler.NewUserHandler(userUseCase, userRepo)
+	userHandler := handler.NewUserHandler(userUseCase)
 
 	apiGroup := router.Group("/api/v1")
 	{
 		apiGroup.GET("/health", healthCheck)
+		apiGroup.GET("/users", userHandler.GetUsers)
+		apiGroup.GET("/users/:id", userHandler.GetUserByID)
 		apiGroup.POST("/users/register", userHandler.Register)
 	}
 }

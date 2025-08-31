@@ -8,7 +8,6 @@ import (
 	"github.com/frtasoniero/user-management-api/internal/core/domain"
 	"github.com/frtasoniero/user-management-api/internal/core/ports"
 	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/bson/primitive"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
@@ -28,13 +27,32 @@ func NewUserRepository(db *mongo.Database, collectionName string) *UserRepositor
 func (r *UserRepository) GetUsers(ctx context.Context, opts *ports.GetUsersOptions) (*ports.GetUsersResult, error) {
 	// Set defaults
 	if opts == nil {
-		opts = &ports.GetUsersOptions{Page: 1, PageSize: 10}
+		opts = &ports.GetUsersOptions{Page: 1, PageSize: 10, SortBy: "created_at", Order: "asc"}
 	}
 	if opts.Page < 1 {
 		opts.Page = 1
 	}
 	if opts.PageSize < 1 || opts.PageSize > 100 { // Limit max page size
 		opts.PageSize = 10
+	}
+	if opts.SortBy == "" {
+		opts.SortBy = "created_at"
+	}
+	if opts.Order == "" {
+		opts.Order = "asc"
+	}
+
+	// Build query filter for search
+	filter := bson.M{}
+	if opts.Search != "" {
+		// Search in multiple fields using regex (case-insensitive)
+		filter = bson.M{
+			"$or": []bson.M{
+				{"email": bson.M{"$regex": opts.Search, "$options": "i"}},
+				{"profile.first_name": bson.M{"$regex": opts.Search, "$options": "i"}},
+				{"profile.last_name": bson.M{"$regex": opts.Search, "$options": "i"}},
+			},
+		}
 	}
 
 	// Build find options
@@ -58,17 +76,31 @@ func (r *UserRepository) GetUsers(ctx context.Context, opts *ports.GetUsersOptio
 		findOpts.SetProjection(projection)
 	}
 
-	// Add sorting for consistent pagination
-	findOpts.SetSort(bson.D{{Key: "_id", Value: 1}})
+	// Add sorting
+	sortOrder := 1 // ascending
+	if opts.Order == "desc" {
+		sortOrder = -1
+	}
 
-	// Get total count for pagination info
-	totalCount, err := r.collection.CountDocuments(ctx, bson.M{})
+	// Map sort fields to MongoDB field names
+	sortField := opts.SortBy
+	switch opts.SortBy {
+	case "first_name":
+		sortField = "profile.first_name"
+	case "last_name":
+		sortField = "profile.last_name"
+	}
+
+	findOpts.SetSort(bson.D{{Key: sortField, Value: sortOrder}})
+
+	// Get total count for pagination info (with search filter)
+	totalCount, err := r.collection.CountDocuments(ctx, filter)
 	if err != nil {
 		return nil, err
 	}
 
-	// Execute query
-	cursor, err := r.collection.Find(ctx, bson.M{}, findOpts)
+	// Execute query with filter
+	cursor, err := r.collection.Find(ctx, filter, findOpts)
 	if err != nil {
 		return nil, err
 	}
@@ -112,10 +144,18 @@ func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (*dom
 	return &user, nil
 }
 
+func (r *UserRepository) GetUserByID(ctx context.Context, id string) (*domain.User, error) {
+	var user domain.User
+	if err := r.collection.FindOne(ctx, bson.M{"_id": id}).Decode(&user); err != nil {
+		if err == mongo.ErrNoDocuments {
+			return nil, nil
+		}
+		return nil, err
+	}
+	return &user, nil
+}
+
 func (r *UserRepository) CreateUser(ctx context.Context, user *domain.User) error {
-	user.ID = primitive.NewObjectID()
-	now := time.Now()
-	user.CreatedAt, user.UpdatedAt = now, now
 	if _, err := r.collection.InsertOne(ctx, user); err != nil {
 		return err
 	}
@@ -132,7 +172,7 @@ func (r *UserRepository) UpdateUser(ctx context.Context, user *domain.User) erro
 	return err
 }
 
-func (r *UserRepository) DeleteUser(ctx context.Context, id primitive.ObjectID) error {
+func (r *UserRepository) DeleteUser(ctx context.Context, id string) error {
 	_, err := r.collection.DeleteOne(ctx, bson.M{"_id": id})
 	return err
 }
