@@ -1,10 +1,9 @@
-// MongoDB initialization script
-// This script runs when the container starts for the first time
+// MongoDB initialization script for user_management database
 
 // Switch to the user_management database
 db = db.getSiblingDB('user_management');
 
-// Create a user for the application
+// Create application user with read/write permissions
 db.createUser({
   user: 'api_user',
   pwd: 'api_password',
@@ -16,109 +15,94 @@ db.createUser({
   ]
 });
 
-// Create users collection with validation
+// Create users collection with schema validation
 db.createCollection('users', {
   validator: {
     $jsonSchema: {
       bsonType: 'object',
+      // Remove additionalProperties: false to allow _id field
       required: ['email', 'password_hash', 'profile', 'created_at', 'updated_at'],
       properties: {
         _id: {
-          bsonType: 'objectId',
-          description: 'MongoDB ObjectID'
+          bsonType: 'objectId'
         },
         email: {
           bsonType: 'string',
-          pattern: '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$',
+          pattern: '^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\\.[a-zA-Z]{2,}$',
           description: 'Must be a valid email address'
         },
         password_hash: {
           bsonType: 'string',
           minLength: 1,
-          description: 'Must be a hashed password'
+          description: 'Must be a non-empty string'
         },
         profile: {
           bsonType: 'object',
+          required: ['first_name', 'last_name'],
           properties: {
             first_name: {
               bsonType: 'string',
-              description: 'User first name'
+              minLength: 1
             },
             last_name: {
               bsonType: 'string',
-              description: 'User last name'
+              minLength: 1
             },
             address: {
               bsonType: 'object',
               properties: {
-                street: {
-                  bsonType: 'string',
-                  description: 'Street address'
-                },
-                city: {
-                  bsonType: 'string',
-                  description: 'City name'
-                },
-                state: {
-                  bsonType: 'string',
-                  description: 'State or province'
-                },
-                country: {
-                  bsonType: 'string',
-                  description: 'Country name'
-                },
-                zip_code: {
-                  bsonType: 'string',
-                  description: 'Postal/ZIP code'
-                }
-              },
-              additionalProperties: false
+                street: { bsonType: 'string' },
+                city: { bsonType: 'string' },
+                state: { bsonType: 'string' },
+                country: { bsonType: 'string' },
+                zip_code: { bsonType: 'string' }
+              }
             },
-            phone: {
-              bsonType: 'string',
-              description: 'Phone number'
-            },
-            birthdate: {
-              bsonType: 'string',
-              description: 'Birth date as string (YYYY-MM-DD format recommended)'
-            },
-            nin: {
-              bsonType: 'string',
-              description: 'National identification number'
-            }
-          },
-          additionalProperties: false
+            phone: { bsonType: 'string' },
+            birthdate: { bsonType: 'string' },
+            nin: { bsonType: 'string' }
+          }
         },
         created_at: {
-          bsonType: 'date',
-          description: 'Document creation timestamp'
+          bsonType: 'date'
         },
         updated_at: {
-          bsonType: 'date',
-          description: 'Document last update timestamp'
+          bsonType: 'date'
         }
-      },
-      additionalProperties: false
+      }
     }
-  }
+  },
+  validationLevel: 'strict',
+  validationAction: 'error'
 });
 
-// Create unique index on email
-db.users.createIndex({ email: 1 }, { unique: true });
+// Create indexes for better performance
+db.users.createIndex(
+  { email: 1 },
+  { unique: true, name: 'email_unique_idx' }
+);
 
-// Create index on created_at for efficient sorting
-db.users.createIndex({ created_at: 1 });
+db.users.createIndex(
+  { 'profile.first_name': 1, 'profile.last_name': 1 },
+  { name: 'name_idx' }
+);
 
-// Create index on profile fields for searching
-db.users.createIndex({ 
-  "profile.first_name": 1, 
-  "profile.last_name": 1 
-});
+db.users.createIndex(
+  { 'profile.phone': 1 },
+  { sparse: true, name: 'phone_sparse_idx' }
+);
 
-// Create index on phone for lookups (sparse index since it's optional)
-db.users.createIndex({ "profile.phone": 1 }, { sparse: true });
+db.users.createIndex(
+  { 'profile.nin': 1 },
+  { unique: true, sparse: true, name: 'nin_unique_sparse_idx' }
+);
 
-// Create index on NIN for lookups (sparse and unique since it's optional but should be unique)
-db.users.createIndex({ "profile.nin": 1 }, { sparse: true, unique: true });
+db.users.createIndex(
+  { created_at: 1 },
+  { name: 'created_at_idx' }
+);
 
-print('Database initialization completed successfully!');
+print('✅ Database initialized successfully!');
+print('✅ Users collection created with schema validation');
+print('✅ Indexes created for optimal performance');
+print('✅ Application user created with proper permissions');
