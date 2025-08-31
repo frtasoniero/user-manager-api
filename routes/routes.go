@@ -1,0 +1,26 @@
+package routes
+
+import (
+	"net/http"
+
+	handler "github.com/frtasoniero/user-management-api/internal/adapters/handler/http"
+	"github.com/frtasoniero/user-management-api/internal/core/usecase"
+	"github.com/frtasoniero/user-management-api/internal/repository"
+	"github.com/gin-gonic/gin"
+)
+
+func RegisterRoutes(router *gin.Engine, userRepo *repository.UserRepository) {
+	userUseCase := usecase.NewUserUseCase(userRepo)
+	userHandler := handler.NewUserHandler(userUseCase, userRepo)
+
+	apiGroup := router.Group("/api/v1")
+	{
+		apiGroup.GET("/health", healthCheck)
+		apiGroup.POST("/user/register", userHandler.Register)
+	}
+
+}
+
+func healthCheck(c *gin.Context) {
+	c.JSON(http.StatusOK, gin.H{"status": "ok"})
+}
