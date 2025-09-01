@@ -1,0 +1,295 @@
+basePath: /api/v1
+definitions:
+  domain.Address:
+    properties:
+      city:
+        example: New York
+        type: string
+      country:
+        example: USA
+        type: string
+      state:
+        example: NY
+        type: string
+      street:
+        example: 123 Main St
+        type: string
+      zip_code:
+        example: "10001"
+        type: string
+    type: object
+  domain.Profile:
+    properties:
+      address:
+        $ref: '#/definitions/domain.Address'
+      birthdate:
+        example: "1990-05-15"
+        type: string
+      first_name:
+        example: John
+        type: string
+      last_name:
+        example: Doe
+        type: string
+      nin:
+        example: 123-45-6789
+        type: string
+      phone:
+        example: +1-555-123-4567
+        type: string
+    type: object
+  domain.User:
+    properties:
+      created_at:
+        example: "2024-01-01T00:00:00Z"
+        type: string
+      email:
+        example: john.doe@example.com
+        type: string
+      id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      profile:
+        $ref: '#/definitions/domain.Profile'
+      updated_at:
+        example: "2024-01-01T00:00:00Z"
+        type: string
+    type: object
+  http.ErrorResponse:
+    properties:
+      error:
+        example: Invalid input
+        type: string
+    type: object
+  http.GetUsersResponse:
+    properties:
+      page:
+        example: 1
+        type: integer
+      page_size:
+        example: 10
+        type: integer
+      total_count:
+        example: 100
+        type: integer
+      total_pages:
+        example: 10
+        type: integer
+      users:
+        items:
+          $ref: '#/definitions/http.UserResponse'
+        type: array
+    type: object
+  http.RegisterRequest:
+    properties:
+      email:
+        example: john.doe@example.com
+        type: string
+      password:
+        example: securePassword123
+        minLength: 6
+        type: string
+      profile:
+        $ref: '#/definitions/domain.Profile'
+    required:
+    - email
+    - password
+    - profile
+    type: object
+  http.RegisterResponse:
+    properties:
+      message:
+        example: User registered successfully
+        type: string
+    type: object
+  http.UserResponse:
+    properties:
+      created_at:
+        example: "2024-01-01T00:00:00Z"
+        type: string
+      email:
+        example: john.doe@example.com
+        type: string
+      id:
+        example: 550e8400-e29b-41d4-a716-446655440000
+        type: string
+      profile:
+        $ref: '#/definitions/domain.Profile'
+      updated_at:
+        example: "2024-01-01T00:00:00Z"
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: frtasoniero@gmail.com
+    name: API Support
+    url: https://github.com/frtasoniero/user-management-api
+  description: |-
+    A comprehensive REST API for managing users and profile management.
+    Features include user registration, profile management, and advanced filtering.
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  termsOfService: https://github.com/frtasoniero/user-management-api/blob/main/LICENSE
+  title: User Management API
+  version: "1.0"
+paths:
+  /health:
+    get:
+      consumes:
+      - application/json
+      description: Check if the API server is running and healthy
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: API is healthy
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Health check endpoint
+      tags:
+      - health
+  /users:
+    get:
+      consumes:
+      - application/json
+      description: |-
+        Retrieve a paginated list of users with optional search, sorting, and field selection
+        Supports full-text search across email, first name, and last name
+      parameters:
+      - default: 1
+        description: Page number (1-based)
+        in: query
+        minimum: 1
+        name: page
+        type: integer
+      - default: 10
+        description: Number of users per page
+        in: query
+        maximum: 100
+        minimum: 1
+        name: page_size
+        type: integer
+      - description: Search term for email, first name, or last name
+        example: '"john"'
+        in: query
+        name: search
+        type: string
+      - description: Sort field
+        enum:
+        - email
+        - created_at
+        - updated_at
+        - first_name
+        - last_name
+        example: '"created_at"'
+        in: query
+        name: sort
+        type: string
+      - default: asc
+        description: Sort order
+        enum:
+        - asc
+        - desc
+        example: '"desc"'
+        in: query
+        name: order
+        type: string
+      - description: Comma-separated list of fields to include in response
+        example: '"email,profile.first_name,created_at"'
+        in: query
+        name: fields
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of users with pagination info
+          schema:
+            $ref: '#/definitions/http.GetUsersResponse'
+        "400":
+          description: Bad request - invalid parameters
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "500":
+          description: Internal server error
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      summary: Get users with advanced filtering
+      tags:
+      - users
+  /users/{id}:
+    get:
+      consumes:
+      - application/json
+      description: Retrieve a specific user by their UUID
+      parameters:
+      - description: User UUID
+        example: '"550e8400-e29b-41d4-a716-446655440000"'
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: User details
+          schema:
+            $ref: '#/definitions/domain.User'
+        "400":
+          description: Bad request - invalid UUID format
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "404":
+          description: User not found
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      summary: Get user by ID
+      tags:
+      - users
+  /users/register:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        Register a new user account with email, password, and profile information
+        The password will be securely hashed before storage
+      parameters:
+      - description: User registration data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/http.RegisterRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: User registered successfully
+          schema:
+            $ref: '#/definitions/http.RegisterResponse'
+        "400":
+          description: Bad request - invalid input data
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+        "409":
+          description: Conflict - email already exists
+          schema:
+            $ref: '#/definitions/http.ErrorResponse'
+      summary: Register a new user
+      tags:
+      - users
+schemes:
+- http
+- https
+swagger: "2.0"
+tags:
+- description: Health check endpoints
+  name: health
+- description: User management operations including registration, authentication,
+    and profile management
+  name: users
