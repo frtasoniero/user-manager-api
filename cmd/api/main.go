@@ -15,13 +15,38 @@ import (
 	"github.com/frtasoniero/user-management-api/routes"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+
+	// Import docs for swagger (will be generated)
+	_ "github.com/frtasoniero/user-management-api/docs"
 )
 
-// main initializes and starts the User Management API server
+// @title User Management API
+// @version 1.0
+// @description A comprehensive REST API for managing users and profile management.
+// @description Features include user registration, profile management, and advanced filtering.
+// @termsOfService https://github.com/frtasoniero/user-management-api/blob/main/LICENSE
+
+// @contact.name API Support
+// @contact.url https://github.com/frtasoniero/user-management-api
+// @contact.email frtasoniero@gmail.com
+
+// @license.name MIT
+// @license.url https://opensource.org/licenses/MIT
+
+// @host localhost:8080
+// @BasePath /api/v1
+// @schemes http https
+
+// @tag.name health
+// @tag.description Health check endpoints
+
+// @tag.name users
+// @tag.description User management operations including registration, authentication, and profile management
+
 func main() {
 	// Load environment variables from .env file (optional for development)
 	if err := godotenv.Load(); err != nil {
-		log.Print("Error loading .env file")
+		log.Println("Warning: Error loading .env file, using system environment variables")
 	}
 
 	// Initialize database connection to MongoDB
@@ -59,9 +84,10 @@ func main() {
 
 	// Start HTTP server in a goroutine to allow for graceful shutdown
 	go func() {
-		log.Printf("Server running on port: %s", port)
+		log.Printf("🚀 Server starting on port %s", port)
+		log.Printf("📖 Swagger documentation available at http://localhost:%s/swagger/index.html", port)
 		if err := srv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			log.Fatalf("Failed to start server: %v", err)
+			log.Fatalf("❌ Server failed to start: %v", err)
 		}
 	}()
 
@@ -69,7 +95,7 @@ func main() {
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	<-quit // Block until signal is received
-	log.Println("Shutting down server...")
+	log.Println("🛑 Shutting down server...")
 
 	// Create a context with timeout for graceful shutdown
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
@@ -77,8 +103,8 @@ func main() {
 
 	// Attempt graceful shutdown - finish existing requests within timeout
 	if err := srv.Shutdown(ctx); err != nil {
-		log.Fatal("Server forced to shutdown: ", err)
+		log.Printf("❌ Server forced to shutdown: %v", err)
 	}
 
-	log.Println("Server shutdown.")
+	log.Println("✅ Server shutdown complete")
 }

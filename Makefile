@@ -1,4 +1,4 @@
-.PHONY: help build run dev clean docker-up docker-down docker-logs docker-clean deps lint format vet check install-tools
+.PHONY: help build run dev clean docker-up docker-down docker-logs docker-clean deps lint format vet check install-tools swagger swagger-fmt swagger-clean
 
 # Default target
 help: ## Show available commands
@@ -14,6 +14,21 @@ help: ## Show available commands
 	else \
 		echo ".env file already exists"; \
 	fi
+
+# Generate Swagger documentation
+swagger: ## Generate Swagger documentation
+	@echo "🔧 Generating Swagger documentation..."
+	@swag init -g cmd/api/main.go -o ./docs --exclude ./vendor
+
+# Format Swagger comments
+swagger-fmt: ## Format Swagger comments
+	@echo "🔧 Formatting Swagger comments..."
+	@swag fmt -g cmd/api/main.go
+
+# Clean generated docs
+swagger-clean: ## Clean Swagger documentation
+	@echo "🧹 Cleaning Swagger documentation..."
+	@rm -rf docs/
 
 # Go commands
 deps: ## Download dependencies
@@ -36,9 +51,10 @@ run: .env ## Run the application
 	@echo "Starting API server..."
 	@go run ./cmd/api
 
-dev: .env install-tools ## Run in development mode with hot reload
-	@echo "Starting development server with hot reload..."
-	@air
+dev: .env install-tools swagger ## Run in development mode with hot reload
+	@echo "🚀 Starting development server with Swagger docs..."
+	@echo "📖 Swagger UI will be available at: http://localhost:8080/swagger/index.html"
+	@air -c .air.toml
 
 # Code quality
 lint: ## Run linter
@@ -105,10 +121,11 @@ db-restore: ## Restore database (usage: make db-restore BACKUP=backup-20240101-1
 	@docker-compose exec mongodb mongorestore --uri="mongodb://admin:password123@localhost:27017/user_management?authSource=admin" --drop /tmp/restore/user_management
 
 # Development workflow
-setup: install-tools .env docker-up ## Complete project setup
-	@echo "Waiting for MongoDB to be ready..."
+setup: install-tools .env docker-up swagger ## Complete project setup
+	@echo "🕒 Waiting for MongoDB to be ready..."
 	@sleep 5
-	@echo "Setup complete! You can now run 'make dev' to start development"
+	@echo "✅ Project setup complete!"
+	@echo "📖 Access Swagger documentation at: http://localhost:8080/swagger/index.html"
 
 start: docker-up run ## Start database and API
 	@echo "API is running at http://localhost:8080"

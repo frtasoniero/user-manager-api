@@ -1,1 +1,125 @@
+# Binaries for programs and plugins
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binary, built with `go test -c`
+*.test
+
+# Output of the go coverage tool, specifically when used with LiteIDE
+*.out
+coverage.html
+
+# Dependency directories (remove the comment below to include it)
+# vendor/
+
+# Go workspace file
+go.work
+go.work.sum
+
+# Environment variables
 .env
+.env.local
+.env.development
+.env.test
+.env.production
+
+# IDE and editor files
+.vscode/settings.json
+.vscode/launch.json
+.vscode/tasks.json
+.idea/
+*.swp
+*.swo
+*~
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Runtime data
+pids
+*.pid
+*.seed
+*.pid.lock
+
+# Coverage directory used by tools like istanbul
+coverage/
+*.cover
+*.coverprofile
+
+# Build artifacts
+dist/
+build/
+bin/
+tmp/
+cmd/api/api
+cmd/api/main
+
+# Temporary files
+temp/
+
+# Database files (if using local databases)
+*.db
+*.sqlite
+*.sqlite3
+
+# Docker
+.dockerignore
+
+# Application specific
+config/local.yaml
+config/development.yaml
+*.pem
+*.key
+*.crt
+
+# Test files and data
+testdata/
+test-results/
+
+# Generated Swagger documentation
+docs/docs.go
+docs/swagger.json
+docs/swagger.yaml
+
+# Air live reload
+.air.toml
+
+# MongoDB data (if running locally)
+data/
+
+# Backup files
+backups/
+*.backup
+
+# Node.js (if using any frontend tools)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# MacOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux
+*~
+.nfs*
