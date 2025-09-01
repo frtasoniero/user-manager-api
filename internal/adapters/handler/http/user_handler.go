@@ -22,32 +22,9 @@ type RegisterRequest struct {
 	Profile  domain.Profile `json:"profile" binding:"required"`
 }
 
-// RegisterResponse represents the response for successful user registration
-type RegisterResponse struct {
-	Message string `json:"message" example:"User registered successfully"`
-}
-
 // ErrorResponse represents an error response
 type ErrorResponse struct {
 	Error string `json:"error" example:"Invalid input"`
-}
-
-// GetUsersResponse represents the paginated users response
-type GetUsersResponse struct {
-	Users      []*UserResponse `json:"users"`
-	TotalCount int64           `json:"total_count" example:"100"`
-	Page       int             `json:"page" example:"1"`
-	PageSize   int             `json:"page_size" example:"10"`
-	TotalPages int             `json:"total_pages" example:"10"`
-}
-
-// UserResponse represents a user in API responses (without sensitive data)
-type UserResponse struct {
-	ID        string         `json:"id" example:"550e8400-e29b-41d4-a716-446655440000"`
-	Email     string         `json:"email" example:"john.doe@example.com"`
-	Profile   domain.Profile `json:"profile"`
-	CreatedAt string         `json:"created_at" example:"2024-01-01T00:00:00Z"`
-	UpdatedAt string         `json:"updated_at" example:"2024-01-01T00:00:00Z"`
 }
 
 func NewUserHandler(userUC ports.UserUseCase) *UserHandler {
@@ -84,7 +61,7 @@ func (h *UserHandler) Register(c *gin.Context) {
 		return
 	}
 
-	c.JSON(http.StatusCreated, RegisterResponse{Message: "User registered successfully"})
+	c.JSON(http.StatusCreated, gin.H{"message": "User registered successfully"})
 }
 
 // GetUserByID godoc
@@ -203,3 +180,47 @@ func (h *UserHandler) GetUsers(c *gin.Context) {
 
 	c.JSON(http.StatusOK, result)
 }
+
+// DeleteUser godoc
+// @Summary Delete user by ID
+// @Description Remove a specific user by their UUID
+// @Tags users
+// @Accept json
+// @Produce json
+// @Param id path string true "User UUID" example("550e8400-e29b-41d4-a716-446655440000")
+// @Success 200 {object} domain.User "User details"
+// @Failure 400 {object} ErrorResponse "Bad request - invalid UUID format"
+// @Failure 404 {object} ErrorResponse "User not found"
+// @Router /users/{id} [get]
+func (h *UserHandler) DeleteUser(c *gin.Context) {
+	idParam := c.Param("id")
+	err := h.userUC.DeleteUser(c.Request.Context(), idParam)
+	if err != nil {
+		if strings.Contains(err.Error(), "not found") {
+			c.JSON(http.StatusNotFound, ErrorResponse{Error: "User not found"})
+		} else {
+			c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+		}
+		return
+	}
+	c.JSON(http.StatusNoContent, nil)
+}
+
+// func (h *UserHandler) UpdateUser(c *gin.Context) {
+// 	idParam := c.Param("id")
+// 	var user domain.User
+// 	if err := c.ShouldBindJSON(&user); err != nil {
+// 		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "Invalid request payload"})
+// 		return
+// 	}
+// 	err := h.userUC.UpdateUser(c.Request.Context(), &user)
+// 	if err != nil {
+// 		if strings.Contains(err.Error(), "not found") {
+// 			c.JSON(http.StatusNotFound, ErrorResponse{Error: "User not found"})
+// 		} else {
+// 			c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
+// 		}
+// 		return
+// 	}
+// 	c.JSON(http.StatusOK, gin.H{"message": "User updated successfully"})
+// }
