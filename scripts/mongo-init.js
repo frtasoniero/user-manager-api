@@ -20,13 +20,12 @@ db.createCollection('users', {
   validator: {
     $jsonSchema: {
       bsonType: 'object',
-      // Remove additionalProperties: false to allow _id field
       required: ['email', 'password_hash', 'profile', 'created_at', 'updated_at'],
       properties: {
         _id: {
           bsonType: 'string',
-          pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$',
-          description: 'Must be a valid UUID'
+          pattern: '^[0-9a-f]{8}-[0-9a-f]{4}-7[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$',
+          description: 'Must be a valid UUID v7'
         },
         email: {
           bsonType: 'string',
@@ -82,6 +81,11 @@ db.createCollection('users', {
 db.users.createIndex(
   { email: 1 },
   { unique: true, name: 'email_unique_idx' }
+);
+
+db.users.createIndex(
+  { _id: 1 },
+  { name: 'id_time_ordered_idx' }
 );
 
 db.users.createIndex(

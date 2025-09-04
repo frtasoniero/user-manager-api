@@ -1,0 +1,65 @@
+# Version control
+.git
+.gitignore
+
+# Environment files
+.env*
+*.env
+
+# Documentation
+README.md
+*.md
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Test files
+*_test.go
+testdata/
+
+# Build artifacts
+bin/
+dist/
+build/
+
+# Dependencies (already handled by go mod)
+vendor/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# Logs
+*.log
+logs/
+
+# Coverage reports
+coverage.out
+*.coverage
+
+# Docker files
+Dockerfile*
+docker-compose*.yml
+
+# GitHub workflows (not needed in container)
+.github/
+
+# Scripts (if not needed in runtime)
+scripts/
+
+# Makefile (build tool, not runtime)
+Makefile
+
+# Any local config
+local.yml
+local.yaml
+config.local.*

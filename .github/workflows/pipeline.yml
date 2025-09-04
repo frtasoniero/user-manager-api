@@ -1,18 +1,54 @@
-name: GitHub Actions Demo
-run-name: ${{ github.actor }} is testing out GitHub Actions 🚀
-on: [push]
+name: Build & Release
+run-name: Building User Management API 🚀
+
+on:
+  push:
+    branches: [ main ]
+
+env:
+  GO_VERSION: '1.25.0'
+
 jobs:
-  Explore-GitHub-Actions:
+  build-and-release:
+    name: 🔨 Build & Release
     runs-on: ubuntu-latest
+    
+    permissions:
+      contents: write
+
     steps:
-      - run: echo "🎉 The job was automatically triggered by a ${{ github.event_name }} event."
-      - run: echo "🐧 This job is now running on a ${{ runner.os }} server hosted by GitHub!"
-      - run: echo "🔎 The name of your branch is ${{ github.ref }} and your repository is ${{ github.repository }}."
-      - name: Check out repository code
-        uses: actions/checkout@v5
-      - run: echo "💡 The ${{ github.repository }} repository has been cloned to the runner."
-      - run: echo "🖥️ The workflow is now ready to test your code on the runner."
-      - name: List files in the repository
-        run: |
-          ls ${{ github.workspace }}
-      - run: echo "🍏 This job's status is ${{ job.status }}."
+    - name: 🔍 Checkout code
+      uses: actions/checkout@v5
+      with:
+        fetch-depth: 0
+
+    - name: 🐹 Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+
+    - name: 🔨 Build binaries
+      run: |
+        mkdir -p bin
+        
+        # Linux
+        GOOS=linux GOARCH=amd64 go build -o bin/user-management-api-linux ./cmd/api
+        
+    - name: 🏷️ Generate version
+      id: version
+      run: |
+        VERSION="v$(date +'%Y.%m.%d')-${GITHUB_RUN_NUMBER}"
+        echo "tag=${VERSION}" >> $GITHUB_OUTPUT
+
+    - name: 🎉 Create Release
+      uses: ncipollo/release-action@v1
+      with:
+        tag: ${{ steps.version.outputs.tag }}
+        name: Release ${{ steps.version.outputs.tag }}
+        body: |
+          ## 🚀 User Management API - ${{ steps.version.outputs.tag }}
+          
+          **Download the binary for your platform:**
+          - Linux: `user-management-api-linux`
+        artifacts: "bin/*"
+        token: ${{ secrets.GITHUB_TOKEN }}

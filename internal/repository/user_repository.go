@@ -14,6 +14,19 @@ import (
 
 var _ ports.UserRepository = (*UserRepository)(nil)
 
+// MongoDB query operators constants
+const (
+	mongoRegexOperator   = "$regex"
+	mongoOrOperator      = "$or"
+	mongoSetOperator     = "$set"
+	mongoOptionsOperator = "$options"
+)
+
+// Search options constants
+const (
+	caseInsensitiveOption = "i"
+)
+
 type UserRepository struct {
 	collection *mongo.Collection
 }
@@ -25,14 +38,55 @@ func NewUserRepository(db *mongo.Database, collectionName string) *UserRepositor
 }
 
 func (r *UserRepository) GetUsers(ctx context.Context, opts *ports.GetUsersOptions) (*ports.GetUsersResult, error) {
-	// Set defaults
-	if opts == nil {
-		opts = &ports.GetUsersOptions{Page: 1, PageSize: 10, SortBy: "created_at", Order: "asc"}
+	// Validate and set default options
+	opts = r.setDefaultOptions(opts)
+
+	// Build search filter
+	filter := r.buildSearchFilter(opts.Search)
+
+	// Build find options (pagination, projection, sorting)
+	findOpts := r.buildFindOptions(opts)
+
+	// Get total count for pagination info
+	totalCount, err := r.collection.CountDocuments(ctx, filter)
+	if err != nil {
+		return nil, err
 	}
+
+	// Execute the query
+	users, err := r.executeQuery(ctx, filter, findOpts, opts.PageSize)
+	if err != nil {
+		return nil, err
+	}
+
+	// Calculate total pages
+	totalPages := r.calculateTotalPages(totalCount, opts.PageSize)
+
+	return &ports.GetUsersResult{
+		Users:      users,
+		TotalCount: totalCount,
+		Page:       opts.Page,
+		PageSize:   opts.PageSize,
+		TotalPages: totalPages,
+	}, nil
+}
+
+// setDefaultOptions ensures options have valid default values
+func (r *UserRepository) setDefaultOptions(opts *ports.GetUsersOptions) *ports.GetUsersOptions {
+	if opts == nil {
+		return &ports.GetUsersOptions{
+			Page:     1,
+			PageSize: 10,
+			SortBy:   "created_at",
+			Order:    "asc",
+		}
+	}
+
+	// Validate and set defaults for individual fields
 	if opts.Page < 1 {
 		opts.Page = 1
 	}
-	if opts.PageSize < 1 || opts.PageSize > 100 { // Limit max page size
+	if opts.PageSize < 1 || opts.PageSize > 100 {
 		opts.PageSize = 10
 	}
 	if opts.SortBy == "" {
@@ -42,20 +96,76 @@ func (r *UserRepository) GetUsers(ctx context.Context, opts *ports.GetUsersOptio
 		opts.Order = "asc"
 	}
 
-	// Build query filter for search
-	filter := bson.M{}
-	if opts.Search != "" {
-		// Search in multiple fields using regex (case-insensitive)
-		filter = bson.M{
-			"$or": []bson.M{
-				{"email": bson.M{"$regex": opts.Search, "$options": "i"}},
-				{"profile.first_name": bson.M{"$regex": opts.Search, "$options": "i"}},
-				{"profile.last_name": bson.M{"$regex": opts.Search, "$options": "i"}},
-			},
-		}
+	return opts
+}
+
+// buildSearchFilter creates the MongoDB filter for search functionality
+func (r *UserRepository) buildSearchFilter(searchTerm string) bson.M {
+	if searchTerm == "" {
+		return bson.M{}
 	}
 
-	// Build find options
+	regexFilter := bson.M{
+		mongoRegexOperator:   searchTerm,
+		mongoOptionsOperator: caseInsensitiveOption,
+	}
+
+	return bson.M{
+		mongoOrOperator: []bson.M{
+			{"email": regexFilter},
+			{"profile.first_name": regexFilter},
+			{"profile.last_name": regexFilter},
+		},
+	}
+}
+
+// buildProjection creates the MongoDB field projection
+func (r *UserRepository) buildProjection(fields []string) bson.M {
+	if len(fields) == 0 {
+		return bson.M{}
+	}
+
+	projection := bson.M{}
+	for _, field := range fields {
+		projection[field] = 1
+	}
+
+	// Always include _id unless explicitly excluded
+	if _, hasID := projection["_id"]; !hasID {
+		projection["_id"] = 1
+	}
+
+	return projection
+}
+
+// buildSortOptions creates the MongoDB sort configuration
+func (r *UserRepository) buildSortOptions(sortBy, order string) bson.D {
+	// Map API field names to MongoDB field names
+	sortField := r.mapSortField(sortBy)
+
+	// Determine sort order
+	sortOrder := 1 // ascending
+	if order == "desc" {
+		sortOrder = -1
+	}
+
+	return bson.D{{Key: sortField, Value: sortOrder}}
+}
+
+// mapSortField maps API sort field names to MongoDB field names
+func (r *UserRepository) mapSortField(sortBy string) string {
+	switch sortBy {
+	case "first_name":
+		return "profile.first_name"
+	case "last_name":
+		return "profile.last_name"
+	default:
+		return sortBy
+	}
+}
+
+// buildFindOptions creates the complete MongoDB find options
+func (r *UserRepository) buildFindOptions(opts *ports.GetUsersOptions) *options.FindOptions {
 	findOpts := options.Find()
 
 	// Add pagination
@@ -64,42 +174,18 @@ func (r *UserRepository) GetUsers(ctx context.Context, opts *ports.GetUsersOptio
 	findOpts.SetLimit(int64(opts.PageSize))
 
 	// Add field projection if specified
-	if len(opts.Fields) > 0 {
-		projection := bson.M{}
-		for _, field := range opts.Fields {
-			projection[field] = 1
-		}
-		// Always include _id unless explicitly excluded
-		if _, hasID := projection["_id"]; !hasID {
-			projection["_id"] = 1
-		}
+	if projection := r.buildProjection(opts.Fields); len(projection) > 0 {
 		findOpts.SetProjection(projection)
 	}
 
 	// Add sorting
-	sortOrder := 1 // ascending
-	if opts.Order == "desc" {
-		sortOrder = -1
-	}
+	findOpts.SetSort(r.buildSortOptions(opts.SortBy, opts.Order))
 
-	// Map sort fields to MongoDB field names
-	sortField := opts.SortBy
-	switch opts.SortBy {
-	case "first_name":
-		sortField = "profile.first_name"
-	case "last_name":
-		sortField = "profile.last_name"
-	}
+	return findOpts
+}
 
-	findOpts.SetSort(bson.D{{Key: sortField, Value: sortOrder}})
-
-	// Get total count for pagination info (with search filter)
-	totalCount, err := r.collection.CountDocuments(ctx, filter)
-	if err != nil {
-		return nil, err
-	}
-
-	// Execute query with filter
+// executeQuery performs the MongoDB query and returns users
+func (r *UserRepository) executeQuery(ctx context.Context, filter bson.M, findOpts *options.FindOptions, pageSize int) ([]*domain.User, error) {
 	cursor, err := r.collection.Find(ctx, filter, findOpts)
 	if err != nil {
 		return nil, err
@@ -107,7 +193,7 @@ func (r *UserRepository) GetUsers(ctx context.Context, opts *ports.GetUsersOptio
 	defer cursor.Close(ctx)
 
 	// Pre-allocate slice with known capacity for better memory efficiency
-	users := make([]*domain.User, 0, opts.PageSize)
+	users := make([]*domain.User, 0, pageSize)
 
 	for cursor.Next(ctx) {
 		var user domain.User
@@ -117,20 +203,12 @@ func (r *UserRepository) GetUsers(ctx context.Context, opts *ports.GetUsersOptio
 		users = append(users, &user)
 	}
 
-	if err := cursor.Err(); err != nil {
-		return nil, err
-	}
+	return users, cursor.Err()
+}
 
-	// Calculate total pages
-	totalPages := int(totalCount+int64(opts.PageSize)-1) / opts.PageSize
-
-	return &ports.GetUsersResult{
-		Users:      users,
-		TotalCount: totalCount,
-		Page:       opts.Page,
-		PageSize:   opts.PageSize,
-		TotalPages: totalPages,
-	}, nil
+// calculateTotalPages computes total pages from total count and page size
+func (r *UserRepository) calculateTotalPages(totalCount int64, pageSize int) int {
+	return int(totalCount+int64(pageSize)-1) / pageSize
 }
 
 func (r *UserRepository) GetUserByEmail(ctx context.Context, email string) (*domain.User, error) {
@@ -167,7 +245,7 @@ func (r *UserRepository) UpdateUser(ctx context.Context, user *domain.User) erro
 	_, err := r.collection.UpdateOne(
 		ctx,
 		bson.M{"_id": user.ID},
-		bson.M{"$set": user},
+		bson.M{mongoSetOperator: user},
 	)
 	return err
 }
