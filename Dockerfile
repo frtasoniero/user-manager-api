@@ -7,14 +7,16 @@ WORKDIR /app
 # Install build dependencies
 RUN apk add --no-cache git ca-certificates tzdata
 
-# Copy go mod files
+# Copy go mod files first (better Docker layer caching)
 COPY go.mod go.sum ./
 
 # Download dependencies
 RUN go mod download
 
-# Copy source code
-COPY . .
+# Copy only necessary source code
+COPY cmd/ ./cmd/
+COPY internal/ ./internal/
+COPY pkg/ ./pkg/
 
 # Generate Swagger docs
 RUN go install github.com/swaggo/swag/cmd/swag@latest
@@ -29,8 +31,9 @@ RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
 # Final stage
 FROM alpine:3.19
 
-# Install ca-certificates for HTTPS requests
-RUN apk --no-cache add ca-certificates tzdata
+# Install minimal runtime dependencies
+RUN apk --no-cache add ca-certificates tzdata && \
+    apk --no-cache add wget
 
 # Create non-root user
 RUN addgroup -g 1001 -S appgroup && \
@@ -39,12 +42,9 @@ RUN addgroup -g 1001 -S appgroup && \
 # Set working directory
 WORKDIR /app
 
-# Copy binary from builder
-COPY --from=builder /app/api .
-COPY --from=builder /app/docs ./docs
-
-# Change ownership
-RUN chown -R appuser:appgroup /app
+# Copy only the binary and docs from builder
+COPY --from=builder --chown=appuser:appgroup /app/api .
+COPY --from=builder --chown=appuser:appgroup /app/docs ./docs
 
 # Switch to non-root user
 USER appuser
