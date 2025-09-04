@@ -27,6 +27,38 @@ type ErrorResponse struct {
 	Error string `json:"error" example:"Invalid input"`
 }
 
+// PaginationParams holds pagination parameters
+type PaginationParams struct {
+	Page     int
+	PageSize int
+}
+
+// FilterParams holds filtering and sorting parameters
+type FilterParams struct {
+	Fields []string
+	Search string
+	SortBy string
+	Order  string
+}
+
+// Constants for validation
+const (
+	DefaultPage      = 1
+	DefaultPageSize  = 10
+	MaxPageSize      = 100
+	DefaultSortField = "created_at"
+	DefaultSortOrder = "asc"
+)
+
+// Valid sort fields to prevent injection attacks
+var validSortFields = map[string]bool{
+	"email":      true,
+	"created_at": true,
+	"updated_at": true,
+	"first_name": true,
+	"last_name":  true,
+}
+
 func NewUserHandler(userUC ports.UserUseCase) *UserHandler {
 	return &UserHandler{
 		userUC: userUC,
@@ -107,78 +139,103 @@ func (h *UserHandler) GetUserByID(c *gin.Context) {
 // @Failure 500 {object} ErrorResponse "Internal server error"
 // @Router /users [get]
 func (h *UserHandler) GetUsers(c *gin.Context) {
-	// Parse pagination parameters from URL query
-	page := 1
-	if p := c.Query("page"); p != "" {
-		if parsed, err := strconv.Atoi(p); err == nil && parsed > 0 {
-			page = parsed
-		}
-	}
+	// Parse pagination parameters
+	pagination := h.parsePaginationParams(c)
 
-	pageSize := 10
-	if ps := c.Query("page_size"); ps != "" {
-		if parsed, err := strconv.Atoi(ps); err == nil && parsed > 0 && parsed <= 100 {
-			pageSize = parsed
-		}
-	}
-
-	// Parse field selection from URL query
-	var fields []string
-	if fieldsParam := c.Query("fields"); fieldsParam != "" {
-		fields = strings.Split(fieldsParam, ",")
-		// Clean up field names (remove spaces)
-		for i, field := range fields {
-			fields[i] = strings.TrimSpace(field)
-		}
-	}
-
-	// Parse search parameter
-	search := strings.TrimSpace(c.Query("search"))
-
-	// Parse sorting parameters
-	sortBy := strings.TrimSpace(c.Query("sort"))
-	if sortBy == "" {
-		sortBy = "created_at" // Default sort field
-	}
-
-	// Validate sort field to prevent injection
-	validSortFields := map[string]bool{
-		"email":      true,
-		"created_at": true,
-		"updated_at": true,
-		"first_name": true,
-		"last_name":  true,
-	}
-	if sortBy != "" && !validSortFields[sortBy] {
-		c.JSON(http.StatusBadRequest, ErrorResponse{
-			Error: "Invalid sort field. Valid options: email, created_at, updated_at, first_name, last_name",
-		})
+	// Parse and validate filter parameters
+	filter, errResp := h.parseFilterParams(c)
+	if errResp != nil {
+		c.JSON(http.StatusBadRequest, errResp)
 		return
 	}
 
-	// Parse order parameter (asc or desc)
-	order := strings.ToLower(strings.TrimSpace(c.Query("order")))
-	if order != "asc" && order != "desc" {
-		order = "asc" // Default order
-	}
+	// Build filter options for use case
+	options := h.buildUserFilterOptions(pagination, filter)
 
-	// Build filter options
-	filter := &ports.GetUsersOptions{
-		Page:     page,
-		PageSize: pageSize,
-		Fields:   fields,
-		Search:   search,
-		SortBy:   sortBy,
-		Order:    order,
-	}
-
-	result, err := h.userUC.GetUsers(c.Request.Context(), filter)
+	// Execute use case
+	result, err := h.userUC.GetUsers(c.Request.Context(), options)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
 		return
 	}
 
 	c.JSON(http.StatusOK, result)
+}
+
+func (h *UserHandler) parsePaginationParams(c *gin.Context) PaginationParams {
+	params := PaginationParams{
+		Page:     DefaultPage,
+		PageSize: DefaultPageSize,
+	}
+
+	// Parse page parameter
+	if pageStr := c.Query("page"); pageStr != "" {
+		if page, err := strconv.Atoi(pageStr); err == nil && page > 0 {
+			params.Page = page
+		}
+	}
+
+	// Parse page_size parameter
+	if pageSizeStr := c.Query("page_size"); pageSizeStr != "" {
+		if pageSize, err := strconv.Atoi(pageSizeStr); err == nil && pageSize > 0 && pageSize <= MaxPageSize {
+			params.PageSize = pageSize
+		}
+	}
+
+	return params
+}
+
+// parseFilterParams extracts and validates filter parameters from the request
+func (h *UserHandler) parseFilterParams(c *gin.Context) (*FilterParams, *ErrorResponse) {
+	params := &FilterParams{
+		SortBy: DefaultSortField,
+		Order:  DefaultSortOrder,
+	}
+
+	// Parse field selection
+	if fieldsParam := c.Query("fields"); fieldsParam != "" {
+		fields := strings.Split(fieldsParam, ",")
+		params.Fields = make([]string, len(fields))
+		for i, field := range fields {
+			params.Fields[i] = strings.TrimSpace(field)
+		}
+	}
+
+	// Parse search parameter
+	params.Search = strings.TrimSpace(c.Query("search"))
+
+	// Parse and validate sort field
+	if sortBy := strings.TrimSpace(c.Query("sort")); sortBy != "" {
+		if !validSortFields[sortBy] {
+			return nil, &ErrorResponse{
+				Error: "Invalid sort field. Valid options: email, created_at, updated_at, first_name, last_name",
+			}
+		}
+		params.SortBy = sortBy
+	}
+
+	// Parse and validate sort order
+	if order := strings.ToLower(strings.TrimSpace(c.Query("order"))); order != "" {
+		if order != "asc" && order != "desc" {
+			params.Order = DefaultSortOrder
+		} else {
+			params.Order = order
+		}
+	}
+
+	return params, nil
+}
+
+// buildUserFilterOptions creates the filter options for the use case
+func (h *UserHandler) buildUserFilterOptions(pagination PaginationParams, filter *FilterParams) *ports.GetUsersOptions {
+	return &ports.GetUsersOptions{
+		Page:     pagination.Page,
+		PageSize: pagination.PageSize,
+		Fields:   filter.Fields,
+		Search:   filter.Search,
+		SortBy:   filter.SortBy,
+		Order:    filter.Order,
+	}
 }
 
 // DeleteUser godoc
@@ -205,22 +262,3 @@ func (h *UserHandler) DeleteUser(c *gin.Context) {
 	}
 	c.JSON(http.StatusNoContent, nil)
 }
-
-// func (h *UserHandler) UpdateUser(c *gin.Context) {
-// 	idParam := c.Param("id")
-// 	var user domain.User
-// 	if err := c.ShouldBindJSON(&user); err != nil {
-// 		c.JSON(http.StatusBadRequest, ErrorResponse{Error: "Invalid request payload"})
-// 		return
-// 	}
-// 	err := h.userUC.UpdateUser(c.Request.Context(), &user)
-// 	if err != nil {
-// 		if strings.Contains(err.Error(), "not found") {
-// 			c.JSON(http.StatusNotFound, ErrorResponse{Error: "User not found"})
-// 		} else {
-// 			c.JSON(http.StatusInternalServerError, ErrorResponse{Error: err.Error()})
-// 		}
-// 		return
-// 	}
-// 	c.JSON(http.StatusOK, gin.H{"message": "User updated successfully"})
-// }

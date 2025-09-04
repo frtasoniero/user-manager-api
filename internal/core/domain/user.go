@@ -44,11 +44,21 @@ func NewUser(email, passwordHash string, profile Profile) (*User, error) {
 	}
 
 	return &User{
-		ID:           uuid.New().String(),
+		ID:           generateUUID(),
 		Email:        email,
 		PasswordHash: passwordHash,
 		Profile:      profile,
 		CreatedAt:    time.Now(),
 		UpdatedAt:    time.Now(),
 	}, nil
+}
+
+// generateUUID creates a new UUID v7 (time-ordered)
+func generateUUID() string {
+	// Try to use UUID v7 if available, fallback to v4
+	if id, err := uuid.NewV7(); err == nil {
+		return id.String()
+	}
+	// Fallback to v4 if v7 is not available
+	return uuid.New().String()
 }

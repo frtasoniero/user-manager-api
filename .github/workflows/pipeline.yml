@@ -1,18 +1,215 @@
-name: GitHub Actions Demo
-run-name: ${{ github.actor }} is testing out GitHub Actions 🚀
-on: [push]
+name: CI/CD Pipeline (Optimized)
+run-name: ${{ github.actor }} is building User Management API 🚀
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+  release:
+    types: [ created ]
+
+env:
+  GO_VERSION: '1.25.0'
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
 jobs:
-  Explore-GitHub-Actions:
-    runs-on: ubuntu-latest
+  # Code Quality and Testing (Linux only - free)
+  test:
+    name: 🧪 Test and Quality Checks
+    runs-on: ubuntu-latest  # FREE for public repos
+    
+    services:
+      mongodb:
+        image: mongo:7.0
+        ports:
+          - 27017:27017
+        env:
+          MONGO_INITDB_ROOT_USERNAME: admin
+          MONGO_INITDB_ROOT_PASSWORD: password123
+          MONGO_INITDB_DATABASE: user_management
+
     steps:
-      - run: echo "🎉 The job was automatically triggered by a ${{ github.event_name }} event."
-      - run: echo "🐧 This job is now running on a ${{ runner.os }} server hosted by GitHub!"
-      - run: echo "🔎 The name of your branch is ${{ github.ref }} and your repository is ${{ github.repository }}."
-      - name: Check out repository code
-        uses: actions/checkout@v5
-      - run: echo "💡 The ${{ github.repository }} repository has been cloned to the runner."
-      - run: echo "🖥️ The workflow is now ready to test your code on the runner."
-      - name: List files in the repository
-        run: |
-          ls ${{ github.workspace }}
-      - run: echo "🍏 This job's status is ${{ job.status }}."
+    - name: 🔍 Checkout code
+      uses: actions/checkout@v5
+
+    - name: 🐹 Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        cache: true  # Built-in caching
+
+    - name: 📥 Download dependencies
+      run: go mod download
+
+    - name: 🔧 Install tools
+      run: |
+        go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+        go install github.com/swaggo/swag/cmd/swag@latest
+
+    - name: 📖 Generate Swagger docs
+      run: swag init -g cmd/api/main.go -o ./docs
+
+    - name: 🎨 Format check
+      run: |
+        if [ "$(gofmt -s -l . | wc -l)" -gt 0 ]; then
+          echo "Code is not properly formatted"
+          gofmt -s -l .
+          exit 1
+        fi
+
+    - name: 🔍 Vet
+      run: go vet ./...
+
+    - name: 🚨 Lint
+      run: golangci-lint run --timeout=3m
+
+    - name: 🧪 Run tests
+      env:
+        MONGODB_URI: mongodb://admin:password123@localhost:27017/user_management?authSource=admin
+        MONGODB_DB_NAME: user_management
+        GIN_MODE: test
+      run: go test -v -race -coverprofile=coverage.out ./...
+
+  # Build only for Linux (can cross-compile for free)
+  build:
+    name: 🔨 Build Multi-Platform
+    runs-on: ubuntu-latest  # FREE - cross-compile from Linux
+    needs: test
+    if: github.ref == 'refs/heads/main' || github.event_name == 'release'
+
+    steps:
+    - name: 🔍 Checkout code
+      uses: actions/checkout@v5
+
+    - name: 🐹 Set up Go
+      uses: actions/setup-go@v5
+      with:
+        go-version: ${{ env.GO_VERSION }}
+        cache: true
+
+    - name: 📖 Generate Swagger docs
+      run: |
+        go install github.com/swaggo/swag/cmd/swag@latest
+        swag init -g cmd/api/main.go -o ./docs
+
+    - name: 🔨 Build all platforms
+      run: |
+        mkdir -p bin
+        
+        # Linux AMD64
+        GOOS=linux GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-w -s" -o bin/user-management-api-linux-amd64 ./cmd/api
+        tar -czf bin/user-management-api-linux-amd64.tar.gz -C bin user-management-api-linux-amd64
+        
+        # Linux ARM64
+        GOOS=linux GOARCH=arm64 CGO_ENABLED=0 go build -ldflags="-w -s" -o bin/user-management-api-linux-arm64 ./cmd/api
+        tar -czf bin/user-management-api-linux-arm64.tar.gz -C bin user-management-api-linux-arm64
+        
+        # Darwin AMD64
+        GOOS=darwin GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-w -s" -o bin/user-management-api-darwin-amd64 ./cmd/api
+        tar -czf bin/user-management-api-darwin-amd64.tar.gz -C bin user-management-api-darwin-amd64
+        
+        # Darwin ARM64
+        GOOS=darwin GOARCH=arm64 CGO_ENABLED=0 go build -ldflags="-w -s" -o bin/user-management-api-darwin-arm64 ./cmd/api
+        tar -czf bin/user-management-api-darwin-arm64.tar.gz -C bin user-management-api-darwin-arm64
+        
+        # Windows AMD64
+        GOOS=windows GOARCH=amd64 CGO_ENABLED=0 go build -ldflags="-w -s" -o bin/user-management-api-windows-amd64.exe ./cmd/api
+        zip bin/user-management-api-windows-amd64.zip bin/user-management-api-windows-amd64.exe
+
+    - name: 📦 Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: binaries
+        path: bin/*.tar.gz bin/*.zip
+        retention-days: 7
+
+  # Docker build (only on main branch)
+  docker:
+    name: 🐳 Docker Build & Push
+    runs-on: ubuntu-latest  # FREE
+    needs: test
+    if: github.ref == 'refs/heads/main'
+    
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+    - name: 🔍 Checkout code
+      uses: actions/checkout@v5
+
+    - name: 🔧 Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+
+    - name: 🔐 Log in to Container Registry
+      uses: docker/login-action@v3
+      with:
+        registry: ${{ env.REGISTRY }}
+        username: ${{ github.actor }}
+        password: ${{ secrets.GITHUB_TOKEN }}
+
+    - name: 🐳 Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        platforms: linux/amd64,linux/arm64
+        push: true
+        tags: |
+          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:latest
+          ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ github.sha }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+  # Create release (only on main)
+  release:
+    name: 🎉 Create Release
+    runs-on: ubuntu-latest  # FREE
+    needs: [test, build]
+    if: github.ref == 'refs/heads/main'
+    
+    permissions:
+      contents: write
+
+    steps:
+    - name: 🔍 Checkout code
+      uses: actions/checkout@v5
+      with:
+        fetch-depth: 0
+
+    - name: 📥 Download artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: binaries
+        path: ./bin
+
+    - name: 🏷️ Generate version
+      id: tag
+      run: |
+        CURRENT_DATE=$(date +'%Y.%m.%d')
+        BUILD_NUMBER=${GITHUB_RUN_NUMBER}
+        VERSION="v${CURRENT_DATE}.${BUILD_NUMBER}"
+        echo "version=${VERSION}" >> $GITHUB_OUTPUT
+
+    - name: 🎉 Create Release
+      uses: ncipollo/release-action@v1
+      with:
+        tag: ${{ steps.tag.outputs.version }}
+        name: Release ${{ steps.tag.outputs.version }}
+        body: |
+          ## 🚀 User Management API Release
+          
+          ### 📦 Downloads
+          - **Linux AMD64**: user-management-api-linux-amd64.tar.gz
+          - **Linux ARM64**: user-management-api-linux-arm64.tar.gz  
+          - **macOS AMD64**: user-management-api-darwin-amd64.tar.gz
+          - **macOS ARM64**: user-management-api-darwin-arm64.tar.gz
+          - **Windows AMD64**: user-management-api-windows-amd64.zip
+          
+          ### 🐳 Docker
+          ```bash
+          docker pull ghcr.io/${{ github.repository }}:latest
+          ```
+        artifacts: "bin/*"
+        token: ${{ secrets.GITHUB_TOKEN }}
